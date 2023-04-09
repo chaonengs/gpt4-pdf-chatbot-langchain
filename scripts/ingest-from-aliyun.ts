@@ -5,6 +5,8 @@ import { pinecone } from '@/utils/pinecone-client';
 import { CustomPDFLoader } from '@/utils/customPDFLoader';
 import { PINECONE_INDEX_NAME, PINECONE_NAME_SPACE } from '@/config/pinecone';
 import { DirectoryLoader } from 'langchain/document_loaders';
+import { convertWordFiles } from 'convert-multiple-files-ul';
+
 import OSS from 'ali-oss';
 import fs from 'fs';
 import { QuickDB } from 'quick.db';
@@ -36,22 +38,7 @@ let store  = new OSS({
   bucket: process.env.ALI_OSS_BUECKET
 });
 
-
-
-
-// objects {Array} object meta info list Each ObjectMeta will contains blow properties:
-
-// name {String} object name on oss
-// url {String} resource url
-// lastModified {String} object last modified GMT date, e.g.: 2015-02-19T08:39:44.000Z
-// etag {String} object etag contains ", e.g.: "5B3C1A2E053D763E1B002CC607C5A0FE"
-// type {String} object type, e.g.: Normal
-// size {Number} object size, e.g.: 344606
-// storageClass {String} storage class type, e.g.: Standard
-// owner {Object|null} object owner, including id and displayName
-
 const filePath = 'docs/aliyun';
-
 
 const embed = async () => {
     /*load raw docs from the all files in the directory */
@@ -84,13 +71,22 @@ const embed = async () => {
     });
 };
 
-export const run = async () => {
 
-  let result = await store.listV2({
+const downloadAndEmbedAll = async () => {
+  let nextContinuationToken = await downloadAndEmbed(undefined);
+  while(nextContinuationToken){
+    nextContinuationToken = await downloadAndEmbed(undefined);
+  }
+}
+
+const downloadAndEmbed = async (continuationToken: string | null | undefined) =>{
+  let options = {
     prefix: process.env.ALI_OSS_PDF_ROOT,
     delimiter: '/',
-    'max-keys': '100'
-  }, {timeout: 30000});
+    'max-keys': process.env.ALI_OSS_MAX_KEY || '100',
+    'continuation-token': continuationToken || undefined
+  };
+  let result = await store.listV2(options, {timeout: 30000});
 
   for(let i = 0; i < result.objects.length; i++){
       const filename = result.objects[i].name.split('/').at(-1) || result.objects[i].name;
@@ -102,21 +98,40 @@ export const run = async () => {
       if(parsed){
         console.log("parsed before, skipped: %s", filename);
       }
-      if(!parsed && result.objects[i].name.endsWith(".pdf")){
-        await store.get(result.objects[i].name, filePath + "/" + filename);
-        try{
-          await embed();
-        } catch (error) {
-          if(error.name == "InvalidPDFException"){
-            console.log(error)
-          } else {
-            throw error
+      else{
+        if(result.objects[i].name.endsWith(".docx") || result.objects[i].name.endsWith(".doc") || result.objects[i].name.endsWith(".pdf")) {
+          await store.get(result.objects[i].name, filePath + "/" + filename);
+          let convertedFilePath = null;
+          if(!filename.endsWith(".pdf")){
+            convertedFilePath = await convertWordFiles((filePath + "/" + filename), 'pdf', filePath + "/");
           }
+          try{
+            await embed();
+          } catch (error:any) {
+            if(error.name == "InvalidPDFException"){
+              console.log(error)
+            } else {
+              throw error
+            }
+          }
+          fs.unlinkSync(filePath + "/" + filename);
+          if(convertedFilePath){
+            fs.unlinkSync(filePath + "/" + filename);
+          }
+          await db.set(filename, true);
         }
-        fs.unlinkSync(filePath + "/" + filename);
-        await db.set(filename, true);
+        
       }
   }
+
+  return result.nextContinuationToken;
+  
+}
+
+
+export const run = async () => {
+  await downloadAndEmbedAll()
+  
   // result.objects.forEach(
   //   async (object) => {
   //     console.log("processing %d / %d files", i, result.objects.length);

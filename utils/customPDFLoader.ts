@@ -1,7 +1,6 @@
 import { Document } from 'langchain/document';
 import { readFile } from 'fs/promises';
 import { BaseDocumentLoader } from 'langchain/document_loaders';
-import PDFParser from "pdf2json";
 
 export abstract class BufferLoader extends BaseDocumentLoader {
   constructor(public filePathOrBlob: string | Blob) {
