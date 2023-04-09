@@ -75,7 +75,7 @@ const embed = async () => {
 const downloadAndEmbedAll = async () => {
   let nextContinuationToken = await downloadAndEmbed(undefined);
   while(nextContinuationToken){
-    nextContinuationToken = await downloadAndEmbed(undefined);
+    nextContinuationToken = await downloadAndEmbed(nextContinuationToken);
   }
 }
 
@@ -103,7 +103,7 @@ const downloadAndEmbed = async (continuationToken: string | null | undefined) =>
           await store.get(result.objects[i].name, filePath + "/" + filename);
           let convertedFilePath = null;
           if(!filename.endsWith(".pdf")){
-            convertedFilePath = await convertWordFiles((filePath + "/" + filename), 'pdf', filePath + "/");
+            convertedFilePath = await convertWordFiles((filePath + "/" + filename), 'pdf', filePath + "/", '30');
           }
           try{
             await embed();
@@ -116,7 +116,7 @@ const downloadAndEmbed = async (continuationToken: string | null | undefined) =>
           }
           fs.unlinkSync(filePath + "/" + filename);
           if(convertedFilePath){
-            fs.unlinkSync(filePath + "/" + filename);
+            fs.unlinkSync(convertedFilePath);
           }
           await db.set(filename, true);
         }

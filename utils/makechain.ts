@@ -25,6 +25,16 @@ Question: {question}
 Answer in Markdown:`,
 );
 
+const QA_PROMPT_CHINESE = PromptTemplate.fromTemplate(
+`
+你是一个AI助理，这里是一些求职简历，请你基于提供的简历，回答问题。你需要提供引用文档的超链接，如果你找不到，不要编造超链接。如果你无法在提供的简历中找到答案，就直接说“找不到答案”，不要编造内容。
+问题：{question}
+==================
+简历：{context}
+==================
+答案：
+`,);
+
 export const makeChain = (
   vectorstore: PineconeStore,
   onTokenStream?: (token: string) => void,
@@ -47,7 +57,7 @@ export const makeChain = (
           })
         : undefined,
     }),
-    { prompt: QA_PROMPT },
+    { prompt: QA_PROMPT_CHINESE },
   );
 
   return new ChatVectorDBQAChain({

@@ -26,6 +26,7 @@
     "ali-oss": "^6.17.1",
     "better-sqlite3": "^8.2.0",
     "clsx": "^1.2.1",
+    "convert-multiple-files-ul": "^1.0.1",
     "dotenv": "^16.0.3",
     "langchain": "0.0.41",
     "lucide-react": "^0.125.0",
