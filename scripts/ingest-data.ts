@@ -2,9 +2,12 @@ import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai';
 import { PineconeStore } from 'langchain/vectorstores/pinecone';
 import { pinecone } from '@/utils/pinecone-client';
-import { CustomPDFLoader } from '@/utils/customPDFLoader';
 import { PINECONE_INDEX_NAME, PINECONE_NAME_SPACE } from '@/config/pinecone';
 import { DirectoryLoader } from 'langchain/document_loaders/fs/directory';
+import { TextLoader } from "langchain/document_loaders/fs/text";
+import { PDFLoader } from "langchain/document_loaders/fs/pdf";
+
+import path from 'path';
 
 /* Name of directory to retrieve your files from */
 const filePath = 'docs';
@@ -13,7 +16,8 @@ export const run = async () => {
   try {
     /*load raw docs from the all files in the directory */
     const directoryLoader = new DirectoryLoader(filePath, {
-      '.pdf': (path) => new CustomPDFLoader(path),
+      '.pdf': (path) => new PDFLoader(path),
+      ".txt": (path) => new TextLoader(path),
     });
 
     // const loader = new PDFLoader(filePath);
@@ -26,6 +30,13 @@ export const run = async () => {
     });
 
     const docs = await textSplitter.splitDocuments(rawDocs);
+    docs.forEach(doc => {
+      const filename = doc.metadata.source.split("/").pop();
+      if(filename.endsWith('.txt')){
+        doc.pageContent = filename.split('.')[0] + '/n' + 'doc.pageContent'
+      }
+    });
+
     console.log('split docs', docs);
 
     console.log('creating vector store...');
